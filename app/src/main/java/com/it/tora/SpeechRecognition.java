@@ -3,6 +3,8 @@ package com.it.tora;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.util.Log;
+import android.widget.ImageButton;
+
 import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -28,10 +30,17 @@ public class SpeechRecognition implements RecognitionListener {
     private final String FDXOFF = "spegni";
     private final String FSXON = "sinistra";
     private final String FSXOFF = "spegni";
-    private final String HORN = "pirla";
+    private final String HORN = "suona";
     private final String HORNOFF = "spegni";
-    private final String FPARKON = "vigile";
+    private final String FPARKON = "parcheggia";
     private final String FPARKOFF = "spegni";
+
+    private HomeFragment home;
+
+
+    public SpeechRecognition(HomeFragment homeFragment){
+        home=homeFragment;
+    }
 
     @Override
     public void onReadyForSpeech(Bundle bundle) {
@@ -41,6 +50,9 @@ public class SpeechRecognition implements RecognitionListener {
     @Override
     public void onBeginningOfSpeech() {
         Log.d("inizio","iinixio a paralere");
+
+        home.startSpeak();
+
     }
 
     @Override
@@ -59,11 +71,13 @@ public class SpeechRecognition implements RecognitionListener {
                 Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, "");
                 sr.startListening(intent);*/
+        home.endSpeak();
     }
 
     @Override
     public void onError(int i) {
 
+        home.endSpeak();
 
 
         switch (i){
@@ -103,18 +117,21 @@ public class SpeechRecognition implements RecognitionListener {
     public void onResults(Bundle bundle) {
         final ArrayList risultati=(ArrayList)bundle.get("results_recognition");
         Log.d("Risultato", risultati.toString());
+        home.commandSent(filterResult(risultati.get(0).toString()));
         Thread thread = new Thread(new Runnable(){
             @Override
             public void run() {
                 try {
                     try {
 
-                        switch (risultati.get(0).toString()){
+
+
+                        switch (filterResult(risultati.get(0).toString())){
                             case FDXON:
-                                sendRequest("FDXON");
+                                sendRequest("FSXON");
                                 break;
                             case FSXON:
-                                sendRequest("FSXON");
+                                sendRequest("FDXON");
                                 break;
                             case HORN:
                                 sendRequest("HORN");
@@ -141,16 +158,35 @@ public class SpeechRecognition implements RecognitionListener {
 
     }
 
+    private String filterResult(String s) {
+
+
+
+        if(s.indexOf(FDXON)!=-1){
+            return FDXON;
+        }else if(s.indexOf(FSXON)!=-1){
+            return FSXON;
+        }else if(s.indexOf(HORN)!=-1 || s.indexOf("pirla")!=-1|| s.indexOf("pirata")!=-1){
+            return HORN;
+        }else if(s.indexOf(FPARKON)!=-1|| s.indexOf("parcheggi")!=-1|| s.indexOf("vigil")!=-1){
+            return FPARKON;
+        }else {
+            return "";
+        }
+
+    }
+
     private void sendRequest(String command) throws MalformedURLException {
         HttpURLConnection urlConnection=null;
         try {
             URL url = new URL("http://172.20.10.8/arduino/" + command + "/DO");
             urlConnection = (HttpURLConnection) url.openConnection();
+            Log.d("Comando Inviato", command);
 
             InputStream in = new BufferedInputStream(urlConnection.getInputStream());
             //readStream(in);
         }catch(Exception e){
-
+            Log.d("Errore Rete", e.toString());
         } finally {
             urlConnection.disconnect();
         }
